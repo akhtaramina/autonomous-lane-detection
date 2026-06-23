@@ -11,18 +11,30 @@ venv/
 **/models/*.pt
 **/models/*.pth
 
-# Videos
-**/videos/*.mp4
-**/videos/*.avi
-**/videos/*.mov
+# ----------------------------
+# Phase 2 ONNX assets
+# ----------------------------
 
+phase2_onnx_highway/videos/*.mp4
+phase2_onnx_highway/videos/*.avi
+phase2_onnx_highway/videos/*.mov
+
+# ----------------------------
 # Generated outputs
+# ----------------------------
+
 **/outputs/*
 !**/outputs/README.md
 
+# ----------------------------
 # Backups
+# ----------------------------
+
 backups/
 
+# ----------------------------
 # OS files
+# ----------------------------
+
 Thumbs.db
 .DS_Store
