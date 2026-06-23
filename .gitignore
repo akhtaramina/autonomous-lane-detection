@@ -6,21 +6,21 @@ __pycache__/
 .venv/
 venv/
 
-# Deep learning models
-models/*.onnx
-models/*.pt
-models/*.pth
+# Large model files
+**/models/*.onnx
+**/models/*.pt
+**/models/*.pth
 
 # Videos
-videos/*.mp4
-videos/*.avi
-videos/*.mov
+**/videos/*.mp4
+**/videos/*.avi
+**/videos/*.mov
 
 # Generated outputs
-outputs/*
-!outputs/README.md
+**/outputs/*
+!**/outputs/README.md
 
-#backup folder
+# Backups
 backups/
 
 # OS files
