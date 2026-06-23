@@ -6,9 +6,9 @@ import scipy.special
 
 BASE_DIR = r"C:\Users\amina\autonomous_lane_detect"
 
-VIDEO_PATH = BASE_DIR + r"\videos\dashcam4.mp4"
+VIDEO_PATH = BASE_DIR + r"\videos\dashcam.mp4"
 MODEL_PATH = BASE_DIR + r"\models\tusimple_18.onnx"
-OUTPUT_PATH = BASE_DIR + r"\outputs\dashcam4_onnx_output_100frames.mp4"
+OUTPUT_PATH = BASE_DIR + r"\outputs\dashcam_onnx_output.mp4"
 
 MODEL_INPUT_WIDTH = 800
 MODEL_INPUT_HEIGHT = 288
