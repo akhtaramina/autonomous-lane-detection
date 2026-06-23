@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.pyc
+
+# Virtual environments
+.venv/
+venv/
+
+# Deep learning models
+models/*.onnx
+models/*.pt
+models/*.pth
+
+# Videos
+videos/*.mp4
+videos/*.avi
+videos/*.mov
+
+# Generated outputs
+outputs/*
+!outputs/README.md
+
+#backup folder
+backups/
+
+# OS files
+Thumbs.db
+.DS_Store
