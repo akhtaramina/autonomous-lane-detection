@@ -2,6 +2,11 @@ import cv2
 import numpy as np
 from pathlib import Path
 
+LOOKAHEAD_RATIO = 0.85
+MIN_SEGMENT_WIDTH = 20
+
+LOWER_WHITE = np.array([0, 0, 180], dtype=np.uint8)
+UPPER_WHITE = np.array([180, 80, 255], dtype=np.uint8)
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -14,8 +19,8 @@ def create_white_mask(image):
 
     lower_white = np.array([0, 0, 180], dtype=np.uint8)
     upper_white = np.array([180, 80, 255], dtype=np.uint8)
-
-    return cv2.inRange(hsv, lower_white, upper_white)
+    return cv2.inRange(hsv, LOWER_WHITE, UPPER_WHITE)
+    # return cv2.inRange(hsv, lower_white, upper_white)
 
 
 def find_white_segments_on_row(mask, row_y):
@@ -53,12 +58,13 @@ def main():
 
     mask = create_white_mask(image)
 
-    lookahead_y = int(h * 0.85)
+    # lookahead_y = int(h * 0.85)
+    lookahead_y = int(h * LOOKAHEAD_RATIO)
 
     segments = find_white_segments_on_row(mask, lookahead_y)
 
     # Keep only reasonably wide white segments to ignore tiny noise.
-    MIN_SEGMENT_WIDTH = 20
+    # MIN_SEGMENT_WIDTH = 20
     segments = [
         (start, end)
         for start, end in segments
