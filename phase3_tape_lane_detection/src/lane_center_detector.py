@@ -2,34 +2,57 @@ import cv2
 import numpy as np
 from pathlib import Path
 
+
+# ==========================================================
+# Detection Parameters
+# ==========================================================
+
 LOOKAHEAD_RATIO = 0.85
+SCAN_BAND_HEIGHT = 80
 MIN_SEGMENT_WIDTH = 20
 
 LOWER_WHITE = np.array([0, 0, 180], dtype=np.uint8)
 UPPER_WHITE = np.array([180, 80, 255], dtype=np.uint8)
 
+
+# ==========================================================
+# Project Paths
+# ==========================================================
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-IMAGE_PATH = BASE_DIR / "assets" / "straight_continuous.jpg"
-OUTPUT_PATH = BASE_DIR / "outputs" / "straight_continuous_lane_center.jpg"
+IMAGE_PATH = BASE_DIR / "assets" / "straight_dashed.jpg"
+OUTPUT_PATH = BASE_DIR / "outputs" / "straight_dashed_lane_center.jpg"
 
+
+# ==========================================================
+# Helper Functions
+# ==========================================================
 
 def create_white_mask(image):
     hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
-
-    lower_white = np.array([0, 0, 180], dtype=np.uint8)
-    upper_white = np.array([180, 80, 255], dtype=np.uint8)
-    return cv2.inRange(hsv, LOWER_WHITE, UPPER_WHITE)
-    # return cv2.inRange(hsv, lower_white, upper_white)
+    mask = cv2.inRange(hsv, LOWER_WHITE, UPPER_WHITE)
+    return mask
 
 
-def find_white_segments_on_row(mask, row_y):
-    row = mask[row_y, :]
+def find_white_segments_in_band(mask, center_y, band_height):
+    h, w = mask.shape[:2]
 
-    white_x_positions = np.where(row == 255)[0]
+    half_band = band_height // 2
+
+    band_y1 = max(0, center_y - half_band)
+    band_y2 = min(h, center_y + half_band)
+
+    band = mask[band_y1:band_y2, :]
+
+    column_scores = np.sum(band == 255, axis=0)
+
+    min_white_pixels = max(1, band_height // 4)
+
+    white_x_positions = np.where(column_scores >= min_white_pixels)[0]
 
     if len(white_x_positions) == 0:
-        return []
+        return [], band_y1, band_y2
 
     segments = []
     start_x = white_x_positions[0]
@@ -45,8 +68,12 @@ def find_white_segments_on_row(mask, row_y):
 
     segments.append((start_x, previous_x))
 
-    return segments
+    return segments, band_y1, band_y2
 
+
+# ==========================================================
+# Main
+# ==========================================================
 
 def main():
     image = cv2.imread(str(IMAGE_PATH))
@@ -58,13 +85,14 @@ def main():
 
     mask = create_white_mask(image)
 
-    # lookahead_y = int(h * 0.85)
     lookahead_y = int(h * LOOKAHEAD_RATIO)
 
-    segments = find_white_segments_on_row(mask, lookahead_y)
+    segments, band_y1, band_y2 = find_white_segments_in_band(
+        mask,
+        lookahead_y,
+        SCAN_BAND_HEIGHT
+    )
 
-    # Keep only reasonably wide white segments to ignore tiny noise.
-    # MIN_SEGMENT_WIDTH = 20
     segments = [
         (start, end)
         for start, end in segments
@@ -74,6 +102,7 @@ def main():
     print(f"Image width       : {w}")
     print(f"Image height      : {h}")
     print(f"Lookahead row y   : {lookahead_y}")
+    print(f"Scan band y-range : {band_y1} to {band_y2}")
     print(f"Segments detected : {segments}")
 
     if len(segments) < 2:
@@ -98,15 +127,19 @@ def main():
 
     output = image.copy()
 
-    # Draw lookahead row.
-    cv2.line(output, (0, lookahead_y), (w, lookahead_y), (0, 255, 0), 4)
+    cv2.rectangle(
+        output,
+        (0, band_y1),
+        (w, band_y2),
+        (0, 255, 0),
+        4
+    )
 
-    # Draw tape centers at lookahead row.
     cv2.circle(output, (left_x, lookahead_y), 12, (0, 0, 255), -1)
     cv2.circle(output, (right_x, lookahead_y), 12, (0, 0, 255), -1)
 
-    # Draw lane center and vehicle center.
     cv2.circle(output, (lane_center_x, lookahead_y), 14, (0, 255, 255), -1)
+
     cv2.line(output, (lane_center_x, h), (lane_center_x, h - 250), (0, 255, 255), 6)
     cv2.line(output, (vehicle_center_x, h), (vehicle_center_x, h - 250), (255, 0, 0), 6)
 
