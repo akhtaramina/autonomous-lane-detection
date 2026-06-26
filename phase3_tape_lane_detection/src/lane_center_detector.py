@@ -21,8 +21,8 @@ UPPER_WHITE = np.array([180, 80, 255], dtype=np.uint8)
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-IMAGE_PATH = BASE_DIR / "assets" / "straight_dashed.jpg"
-OUTPUT_PATH = BASE_DIR / "outputs" / "straight_dashed_lane_center.jpg"
+IMAGE_PATH = BASE_DIR / "assets" / "straight_continuous.jpg"
+OUTPUT_PATH = BASE_DIR / "outputs" / "straight_continuous_lane_center.jpg"
 
 
 # ==========================================================
@@ -70,20 +70,10 @@ def find_white_segments_in_band(mask, center_y, band_height):
 
     return segments, band_y1, band_y2
 
+def process_frame(frame):
+    h, w = frame.shape[:2]
 
-# ==========================================================
-# Main
-# ==========================================================
-
-def main():
-    image = cv2.imread(str(IMAGE_PATH))
-
-    if image is None:
-        raise FileNotFoundError(f"Could not load image:\n{IMAGE_PATH}")
-
-    h, w = image.shape[:2]
-
-    mask = create_white_mask(image)
+    mask = create_white_mask(frame)
 
     lookahead_y = int(h * LOOKAHEAD_RATIO)
 
@@ -99,15 +89,19 @@ def main():
         if (end - start) >= MIN_SEGMENT_WIDTH
     ]
 
-    print(f"Image width       : {w}")
-    print(f"Image height      : {h}")
-    print(f"Lookahead row y   : {lookahead_y}")
-    print(f"Scan band y-range : {band_y1} to {band_y2}")
-    print(f"Segments detected : {segments}")
+    output = frame.copy()
+
+    cv2.rectangle(
+        output,
+        (0, band_y1),
+        (w, band_y2),
+        (0, 255, 0),
+        4
+    )
 
     if len(segments) < 2:
         print("Could not detect both tape boundaries.")
-        return
+        return output, None
 
     left_segment = segments[0]
     right_segment = segments[-1]
@@ -119,22 +113,6 @@ def main():
     vehicle_center_x = w // 2
     offset = lane_center_x - vehicle_center_x
 
-    print(f"Left tape x       : {left_x}")
-    print(f"Right tape x      : {right_x}")
-    print(f"Lane center x     : {lane_center_x}")
-    print(f"Vehicle center x  : {vehicle_center_x}")
-    print(f"Offset            : {offset}")
-
-    output = image.copy()
-
-    cv2.rectangle(
-        output,
-        (0, band_y1),
-        (w, band_y2),
-        (0, 255, 0),
-        4
-    )
-
     cv2.circle(output, (left_x, lookahead_y), 12, (0, 0, 255), -1)
     cv2.circle(output, (right_x, lookahead_y), 12, (0, 0, 255), -1)
 
@@ -143,10 +121,33 @@ def main():
     cv2.line(output, (lane_center_x, h), (lane_center_x, h - 250), (0, 255, 255), 6)
     cv2.line(output, (vehicle_center_x, h), (vehicle_center_x, h - 250), (255, 0, 0), 6)
 
+    print(f"Segments detected : {segments}")
+    print(f"Left tape x       : {left_x}")
+    print(f"Right tape x      : {right_x}")
+    print(f"Lane center x     : {lane_center_x}")
+    print(f"Vehicle center x  : {vehicle_center_x}")
+    print(f"Offset            : {offset}")
+
+    return output, offset
+# ==========================================================
+# Main
+# ==========================================================
+
+def main():
+    image = cv2.imread(str(IMAGE_PATH))
+
+    if image is None:
+        raise FileNotFoundError(f"Could not load image:\n{IMAGE_PATH}")
+
+    print(f"Input image: {IMAGE_PATH.name}")
+    print(f"Image size : {image.shape[1]} x {image.shape[0]}")
+
+    output, offset = process_frame(image)
+
     cv2.imwrite(str(OUTPUT_PATH), output)
 
     print(f"Saved output image to:\n{OUTPUT_PATH}")
-
+    print(f"Final offset: {offset}")
 
 if __name__ == "__main__":
     main()
