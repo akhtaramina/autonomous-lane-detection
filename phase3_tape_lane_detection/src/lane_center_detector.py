@@ -7,12 +7,13 @@ from pathlib import Path
 # Detection Parameters
 # ==========================================================
 
-LOOKAHEAD_RATIO = 0.85
-SCAN_BAND_HEIGHT = 80
+ROI_START_RATIO = 0.55
+LOOKAHEAD_RATIO = 0.45
+SCAN_BAND_HEIGHT = 120
 MIN_SEGMENT_WIDTH = 20
 
-LOWER_WHITE = np.array([0, 0, 180], dtype=np.uint8)
-UPPER_WHITE = np.array([180, 80, 255], dtype=np.uint8)
+LOWER_WHITE = np.array([0, 0, 120], dtype=np.uint8)
+UPPER_WHITE = np.array([180, 120, 255], dtype=np.uint8)
 
 
 # ==========================================================
@@ -31,22 +32,19 @@ OUTPUT_PATH = BASE_DIR / "outputs" / "straight_continuous_lane_center.jpg"
 
 def create_white_mask(image):
     hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
-    mask = cv2.inRange(hsv, LOWER_WHITE, UPPER_WHITE)
-    return mask
+    return cv2.inRange(hsv, LOWER_WHITE, UPPER_WHITE)
 
 
 def find_white_segments_in_band(mask, center_y, band_height):
     h, w = mask.shape[:2]
 
     half_band = band_height // 2
-
     band_y1 = max(0, center_y - half_band)
     band_y2 = min(h, center_y + half_band)
 
     band = mask[band_y1:band_y2, :]
 
     column_scores = np.sum(band == 255, axis=0)
-
     min_white_pixels = max(1, band_height // 4)
 
     white_x_positions = np.where(column_scores >= min_white_pixels)[0]
@@ -70,16 +68,22 @@ def find_white_segments_in_band(mask, center_y, band_height):
 
     return segments, band_y1, band_y2
 
+
 def process_frame(frame):
     h, w = frame.shape[:2]
 
-    mask = create_white_mask(frame)
+    roi_start = int(h * ROI_START_RATIO)
+    roi = frame[roi_start:, :]
 
-    lookahead_y = int(h * LOOKAHEAD_RATIO)
+    roi_h, roi_w = roi.shape[:2]
 
-    segments, band_y1, band_y2 = find_white_segments_in_band(
+    mask = create_white_mask(roi)
+
+    lookahead_y_roi = int(roi_h * LOOKAHEAD_RATIO)
+
+    segments, band_y1_roi, band_y2_roi = find_white_segments_in_band(
         mask,
-        lookahead_y,
+        lookahead_y_roi,
         SCAN_BAND_HEIGHT
     )
 
@@ -91,10 +95,25 @@ def process_frame(frame):
 
     output = frame.copy()
 
+    # Convert ROI y-coordinates back to full-frame y-coordinates
+    lookahead_y_frame = lookahead_y_roi + roi_start
+    band_y1_frame = band_y1_roi + roi_start
+    band_y2_frame = band_y2_roi + roi_start
+
+    # Draw ROI boundary
     cv2.rectangle(
         output,
-        (0, band_y1),
-        (w, band_y2),
+        (0, roi_start),
+        (w, h),
+        (0, 180, 0),
+        3
+    )
+
+    # Draw scan band
+    cv2.rectangle(
+        output,
+        (0, band_y1_frame),
+        (w, band_y2_frame),
         (0, 255, 0),
         4
     )
@@ -103,8 +122,19 @@ def process_frame(frame):
         print("Could not detect both tape boundaries.")
         return output, None
 
-    left_segment = segments[0]
-    right_segment = segments[-1]
+    # left_segment = segments[0]
+    # right_segment = segments[-1]
+    segments = sorted(
+        segments,
+        key=lambda segment: segment[1] - segment[0],
+        reverse=True
+    )
+
+    lane_segments = sorted(segments[:2], key=lambda segment: segment[0])
+
+    left_segment = lane_segments[0]
+    right_segment = lane_segments[1]
+
 
     left_x = (left_segment[0] + left_segment[1]) // 2
     right_x = (right_segment[0] + right_segment[1]) // 2
@@ -113,12 +143,15 @@ def process_frame(frame):
     vehicle_center_x = w // 2
     offset = lane_center_x - vehicle_center_x
 
-    cv2.circle(output, (left_x, lookahead_y), 12, (0, 0, 255), -1)
-    cv2.circle(output, (right_x, lookahead_y), 12, (0, 0, 255), -1)
+    # Draw tape centers
+    cv2.circle(output, (left_x, lookahead_y_frame), 12, (0, 0, 255), -1)
+    cv2.circle(output, (right_x, lookahead_y_frame), 12, (0, 0, 255), -1)
 
-    cv2.circle(output, (lane_center_x, lookahead_y), 14, (0, 255, 255), -1)
-
+    # Draw lane center
+    cv2.circle(output, (lane_center_x, lookahead_y_frame), 14, (0, 255, 255), -1)
     cv2.line(output, (lane_center_x, h), (lane_center_x, h - 250), (0, 255, 255), 6)
+
+    # Draw vehicle center
     cv2.line(output, (vehicle_center_x, h), (vehicle_center_x, h - 250), (255, 0, 0), 6)
 
     print(f"Segments detected : {segments}")
@@ -129,6 +162,8 @@ def process_frame(frame):
     print(f"Offset            : {offset}")
 
     return output, offset
+
+
 # ==========================================================
 # Main
 # ==========================================================
@@ -148,6 +183,7 @@ def main():
 
     print(f"Saved output image to:\n{OUTPUT_PATH}")
     print(f"Final offset: {offset}")
+
 
 if __name__ == "__main__":
     main()
