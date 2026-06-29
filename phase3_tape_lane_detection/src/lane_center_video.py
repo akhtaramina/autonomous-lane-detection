@@ -37,6 +37,9 @@ def main():
     )
 
     frame_count = 0
+    last_valid_frame = None
+    last_valid_offset = None
+    
 
     while True:
         ret, frame = cap.read()
@@ -47,9 +50,25 @@ def main():
         if frame_count >= MAX_FRAMES:
             break
 
+        # output_frame, offset = process_frame(frame)
+
+        # writer.write(output_frame)
+
         output_frame, offset = process_frame(frame)
 
+        if offset is not None:
+            last_valid_frame = output_frame.copy()
+            last_valid_offset = offset
+        else:
+            if last_valid_frame is not None:
+                output_frame = last_valid_frame.copy()
+                offset = last_valid_offset
+                print(f"Detection failed. Reusing last valid offset: {offset}")
+            else:
+                print("Detection failed. No previous valid frame available.")
+
         writer.write(output_frame)
+
 
         frame_count += 1
 
