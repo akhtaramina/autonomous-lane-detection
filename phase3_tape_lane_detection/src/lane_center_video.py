@@ -1,7 +1,7 @@
 import cv2
 from pathlib import Path
 
-from lane_center_detector import process_frame
+from lane_center_detector_single_tape import process_frame, LaneWidthEstimator
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -37,9 +37,7 @@ def main():
     )
 
     frame_count = 0
-    last_valid_frame = None
-    last_valid_offset = None
-    
+    estimator = LaneWidthEstimator()
 
     while True:
         ret, frame = cap.read()
@@ -50,23 +48,7 @@ def main():
         if frame_count >= MAX_FRAMES:
             break
 
-        # output_frame, offset = process_frame(frame)
-
-        # writer.write(output_frame)
-
-        output_frame, offset = process_frame(frame)
-
-        if offset is not None:
-            last_valid_frame = output_frame.copy()
-            last_valid_offset = offset
-        else:
-            if last_valid_frame is not None:
-                output_frame = last_valid_frame.copy()
-                offset = last_valid_offset
-                print(f"Detection failed. Reusing last valid offset: {offset}")
-            else:
-                print("Detection failed. No previous valid frame available.")
-
+        output_frame, offset = process_frame(frame, estimator)
         writer.write(output_frame)
 
 
